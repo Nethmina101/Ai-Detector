@@ -91,11 +91,11 @@ text = st.text_area(
     placeholder="Paste paragraph here..."
 )
 # Buttons
-col1, col2 = st.columns(2)
+col1, col2 = st.columns([1,1])
 with col1:
-    detect_clicked = st.button("Detect")
+    detect_clicked = st.button("Detect", use_container_width=True)
 with col2:
-    if st.button("Clear"):
+    if st.button("Clear", use_container_width=True):
         st.session_state["text"] = ""
 
 # Detection
