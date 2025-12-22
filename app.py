@@ -5,7 +5,11 @@ import io
 from PyPDF2 import PdfReader
 from docx import Document
 
+# Session State Initialization
+if "text" not in st.session_state:
+    st.session_state["text"] = ""
 
+# Indicator
 def show_gauge(percent: float):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
@@ -15,23 +19,27 @@ def show_gauge(percent: float):
             "axis": {"range": [0, 100]},
             "bar": {"thickness": 0.35},
             "bgcolor": "white",
-            "steps": [{"range": [0, 100], "color": "#f2f2f2"}],
+            "borderwidth": 0,
+            "steps": [
+                {"range": [0, 20], "color": "white"},
+            ],
         },
     ))
 
     fig.update_layout(
         height=260,
-        margin=dict(l=10, r=10, t=40, b=0),
-        paper_bgcolor="rgba(0,0,0,0)"
+        margin=dict(l=10, r=10, t=30, b=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(size=22),
     )
+
     st.plotly_chart(fig, use_container_width=True)
-    
-    # File readers
+
+# Upload File and Extract Text
 def read_txt(uploaded_file) -> str:
     return uploaded_file.read().decode("utf-8", errors="ignore")
 
 def read_pdf(uploaded_file) -> str:
-    # Reads text from selectable-text PDFs (not scanned images)
     reader = PdfReader(io.BytesIO(uploaded_file.read()))
     pages_text = []
     for page in reader.pages:
@@ -51,11 +59,15 @@ def extract_text_from_upload(uploaded_file) -> str:
         return read_pdf(uploaded_file)
     elif name.endswith(".docx"):
         return read_docx(uploaded_file)
-    else:
-        return ""
+    return ""
 
-# Streamlit App
+# Ui
+st.set_page_config(page_title="AI Detector", page_icon="🧠", layout="centered")
 
+st.title("🧠 AI vs Human Text Detector")
+st.write("Upload a document OR paste text and click **Detect**.")
+
+# Upload section
 uploaded_file = st.file_uploader(
     "Upload a .txt, .pdf, or .docx file",
     type=["txt", "pdf", "docx"]
@@ -68,28 +80,35 @@ if uploaded_file is not None:
         st.error("Couldn't extract text from this file. If it's a scanned PDF (image), text extraction won't work.")
     else:
         st.success(f"Extracted {len(extracted)} characters from: {uploaded_file.name}")
-        text = st.text_area("Extracted text (editable)", value=extracted, height=220)
+        # Auto-fill 
+        st.session_state["text"] = extracted
 
-st.set_page_config(page_title="AI Detector", page_icon="🧠", layout="centered")
+# Main input box (uses session_state)
+text = st.text_area(
+    "Input text",
+    height=220,
+    key="text",
+    placeholder="Paste paragraph here..."
+)
+# Buttons
+col1, col2 = st.columns(2)
+with col1:
+    detect_clicked = st.button("Detect")
+with col2:
+    if st.button("Clear"):
+        st.session_state["text"] = ""
 
-st.title("🧠 AI vs Human Text Detector")
-st.write("Paste a paragraph and click **Detect**.")
-
-text = st.text_area("Input text", height=220, placeholder="Paste paragraph here...")
-
-if st.button("Detect"):
+# Detection
+if detect_clicked:
     if not text.strip():
-        st.warning("Please paste some text.")
+        st.warning("Please paste some text or upload a document.")
     else:
-        label_int = predict_label(text)       # 0 or 1
-        p_ai = predict_proba(text)            # 0.0 - 1.0
+        label_int = predict_label(text)
+        p_ai = predict_proba(text)
 
         label = "AI" if label_int == 1 else "Human"
         percent = p_ai * 100
+
+        st.subheader(f"Result: {label}")
         show_gauge(percent)
-
         st.markdown("<p style='text-align:center; font-size:22px;'>AI Percentage</p>", unsafe_allow_html=True)
-
-
-
-
