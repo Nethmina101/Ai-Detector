@@ -1,9 +1,17 @@
-from ai_detector import predict_label, predict_proba
+from ai_detector import predict_proba
+
+THRESHOLD_AI = 0.80   # tune this later using validation
+THRESHOLD_HUMAN = 0.20
 
 text = input("Paste a paragraph: ").strip()
+p_ai = predict_proba(text)
 
-label = predict_label(text)
-score = predict_proba(text)
+if p_ai >= THRESHOLD_AI:
+    label = "AI"
+elif p_ai <= THRESHOLD_HUMAN:
+    label = "Human"
+else:
+    label = "Uncertain"
 
-print("\nPrediction:", "AI" if label == 1 else "Human")
-print("AI probability:", round(score, 4))
+print("\nPrediction:", label)
+print("AI probability:", round(p_ai, 4))
