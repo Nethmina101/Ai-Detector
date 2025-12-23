@@ -8,6 +8,13 @@ from docx import Document
 # Session State Initialization
 if "text" not in st.session_state:
     st.session_state["text"] = ""
+def clear_text():
+    st.session_state["text"] = ""
+    st.session_state["last_upload"] = None
+
+if "last_upload" not in st.session_state:
+    st.session_state["last_upload"] = None
+
 
 # Indicator
 def show_gauge(percent: float):
@@ -35,7 +42,7 @@ def show_gauge(percent: float):
 
     st.plotly_chart(fig, use_container_width=True)
 
-# Upload File and Extract Text
+#  Extract Text
 def read_txt(uploaded_file) -> str:
     return uploaded_file.read().decode("utf-8", errors="ignore")
 
@@ -74,14 +81,16 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is not None:
-    extracted = extract_text_from_upload(uploaded_file).strip()
+    # Only extract & autofill if this is a NEW file (or after Clear)
+    if st.session_state["last_upload"] != uploaded_file.name:
+        extracted = extract_text_from_upload(uploaded_file).strip()
 
-    if not extracted:
-        st.error("Couldn't extract text from this file. If it's a scanned PDF (image), text extraction won't work.")
-    else:
-        st.success(f"Extracted {len(extracted)} characters from: {uploaded_file.name}")
-        # Auto-fill 
-        st.session_state["text"] = extracted
+        if not extracted:
+            st.error("Couldn't extract text from this file. If it's a scanned PDF (image), text extraction won't work.")
+        else:
+            st.success(f"Extracted {len(extracted)} characters from: {uploaded_file.name}")
+            st.session_state["text"] = extracted
+            st.session_state["last_upload"] = uploaded_file.name
 
 # Main input box (uses session_state)
 text = st.text_area(
@@ -91,12 +100,12 @@ text = st.text_area(
     placeholder="Paste paragraph here..."
 )
 # Buttons
-col1, col2 = st.columns([1,1])
+col1, col2 = st.columns([1, 1])
+
 with col1:
     detect_clicked = st.button("Detect", use_container_width=True)
 with col2:
-    if st.button("Clear", use_container_width=True):
-        st.session_state["text"] = ""
+    st.button("Clear", use_container_width=True, on_click=clear_text)
 
 # Detection
 if detect_clicked:
