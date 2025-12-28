@@ -6,16 +6,15 @@ from PyPDF2 import PdfReader
 from docx import Document
 
 # Session State Initialization
-if "text" not in st.session_state:
-    st.session_state["text"] = ""
+st.session_state.setdefault("text", "")
+st.session_state.setdefault("uploaded_text", "")
+st.session_state.setdefault("last_upload", None)
+
 def clear_text():
     st.session_state["text"] = ""
+    st.session_state["uploaded_text"] = ""
     st.session_state["last_upload"] = None
-
-if "last_upload" not in st.session_state:
-    st.session_state["last_upload"] = None
-
-
+    
 # Indicator
 def show_gauge(percent: float):
     fig = go.Figure(go.Indicator(
@@ -27,9 +26,7 @@ def show_gauge(percent: float):
             "bar": {"thickness": 0.35},
             "bgcolor": "white",
             "borderwidth": 0,
-            "steps": [
-                {"range": [0, 20], "color": "white"},
-            ],
+            "steps": [{"range": [0, 100], "color": "white"}],  # keep white
         },
     ))
 
@@ -42,17 +39,13 @@ def show_gauge(percent: float):
 
     st.plotly_chart(fig, use_container_width=True)
 
-#  Extract Text
+# Upload File and Extract Text
 def read_txt(uploaded_file) -> str:
     return uploaded_file.read().decode("utf-8", errors="ignore")
 
 def read_pdf(uploaded_file) -> str:
     reader = PdfReader(io.BytesIO(uploaded_file.read()))
-    pages_text = []
-    for page in reader.pages:
-        t = page.extract_text() or ""
-        pages_text.append(t)
-    return "\n".join(pages_text)
+    return "\n".join((page.extract_text() or "") for page in reader.pages)
 
 def read_docx(uploaded_file) -> str:
     doc = Document(io.BytesIO(uploaded_file.read()))
@@ -72,7 +65,7 @@ def extract_text_from_upload(uploaded_file) -> str:
 st.set_page_config(page_title="AI Detector", page_icon="🧠", layout="centered")
 
 st.title("🧠 AI vs Human Text Detector")
-st.write("Upload a document OR paste text and click **Detect**.")
+st.write("Upload a document OR paste/edit text and click **Detect**.")
 
 # Upload section
 uploaded_file = st.file_uploader(
@@ -80,28 +73,32 @@ uploaded_file = st.file_uploader(
     type=["txt", "pdf", "docx"]
 )
 
-if uploaded_file is not None:
-    # Only extract & autofill if this is a NEW file (or after Clear)
-    if st.session_state["last_upload"] != uploaded_file.name:
-        extracted = extract_text_from_upload(uploaded_file).strip()
+# Extract ONLY when a new file is uploaded
+if uploaded_file is not None and st.session_state["last_upload"] != uploaded_file.name:
+    extracted = extract_text_from_upload(uploaded_file).strip()
 
-        if not extracted:
-            st.error("Couldn't extract text from this file. If it's a scanned PDF (image), text extraction won't work.")
-        else:
-            st.success(f"Extracted {len(extracted)} characters from: {uploaded_file.name}")
-            st.session_state["text"] = extracted
-            st.session_state["last_upload"] = uploaded_file.name
+    if not extracted:
+        st.error("Couldn't extract text. If it's a scanned PDF (image), text extraction won't work.")
+    else:
+        st.success(f"Extracted {len(extracted)} characters from: {uploaded_file.name}")
+        st.session_state["uploaded_text"] = extracted
+        st.session_state["last_upload"] = uploaded_file.name
 
-# Main input box (uses session_state)
+# Button to copy extracted text into editor (so edits won't be overwritten)
+if st.session_state["uploaded_text"]:
+    if st.button("Use uploaded text in editor"):
+        st.session_state["text"] = st.session_state["uploaded_text"]
+
+# Editable input text area
 text = st.text_area(
-    "Input text",
+    "Input text (editable)",
     height=220,
     key="text",
     placeholder="Paste paragraph here..."
 )
-# Buttons
-col1, col2 = st.columns([1, 1])
 
+# Buttons row
+col1, col2 = st.columns([1, 1])
 with col1:
     detect_clicked = st.button("Detect", use_container_width=True)
 with col2:
